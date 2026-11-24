@@ -85,7 +85,7 @@ func buildDetailContent(result *speedtester.Result, width int, mode speedtester.
 		"",
 		fmt.Sprintf("Latency: %s", result.FormatLatency()),
 	}
-	if !mode.IsFast() {
+	if !mode.LatencyOnly() {
 		lines = append(lines,
 			fmt.Sprintf("Jitter: %s", result.FormatJitter()),
 			fmt.Sprintf("Packet Loss: %s", result.FormatPacketLoss()),

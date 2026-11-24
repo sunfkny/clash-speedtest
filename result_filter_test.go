@@ -55,13 +55,13 @@ func TestResultFilterMatch(t *testing.T) {
 		}
 	})
 
-	t.Run("fast mode ignores download speed", func(t *testing.T) {
+	t.Run("TTFB mode ignores download speed", func(t *testing.T) {
 		filter := baseFilter
-		filter.mode = speedtester.SpeedModeFast
+		filter.mode = speedtester.SpeedModeTTFB
 		result := validResult()
 		result.DownloadSpeed = 0
 		if !filter.Match(result) {
-			t.Fatalf("expected fast mode to ignore download speed")
+			t.Fatalf("expected TTFB mode to ignore download speed")
 		}
 	})
 

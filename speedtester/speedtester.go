@@ -35,6 +35,7 @@ type Config struct {
 	MaxPacketLoss    float64
 	MinDownloadSpeed float64
 	MinUploadSpeed   float64
+	FastCheck        *FastCheck
 	Mode             SpeedMode
 	OutputPath       string
 	UserAgent        string // optional; empty means use default (mihomo kernel UA)
@@ -103,6 +104,18 @@ func New(config *Config) (*SpeedTester, error) {
 	if mode == "" {
 		mode = SpeedModeDownload
 	}
+	if mode.IsFast() {
+		if config.FastCheck == nil {
+			defaults := DefaultFastCheck()
+			config.FastCheck = &defaults
+		}
+		if err := config.FastCheck.validate(); err != nil {
+			return nil, err
+		}
+		if config.DownloadSize <= 0 {
+			return nil, fmt.Errorf("fast mode requires a positive download size")
+		}
+	}
 	target, err := resolveServerTarget(config.ServerURL)
 	if err != nil {
 		return nil, err
@@ -148,8 +161,9 @@ func resolveServerTarget(rawURL string) (*serverTarget, error) {
 	hasFragment := parsed.Fragment != ""
 	if !hasPath && !hasQuery && !hasFragment {
 		return &serverTarget{
-			mode:    serverModeDownloadServer,
-			baseURL: strings.TrimRight(trimmed, "/"),
+			mode:        serverModeDownloadServer,
+			baseURL:     strings.TrimRight(trimmed, "/"),
+			downloadURL: strings.TrimRight(trimmed, "/") + "/__down?bytes=1",
 		}, nil
 	}
 	return &serverTarget{
@@ -453,7 +467,7 @@ func (st *SpeedTester) testProxy(name string, proxy *CProxy) *Result {
 	result.Jitter = latencyResult.jitter
 	result.PacketLoss = latencyResult.packetLoss
 
-	if st.mode.IsFast() || result.PacketLoss == 100 {
+	if st.mode.LatencyOnly() || result.PacketLoss == 100 {
 		return result
 	}
 	if st.config.OutputPath != "" && st.config.MaxPacketLoss < 100 && latencyResult.packetLoss > st.config.MaxPacketLoss {
@@ -473,20 +487,39 @@ func (st *SpeedTester) testProxy(name string, proxy *CProxy) *Result {
 		uploadSummary = newTransferSummary()
 	}
 
-	downloadChunkSize := st.config.DownloadSize / st.config.Concurrent
-	if downloadChunkSize > 0 {
-		downloadResults := make(chan *downloadResult, st.config.Concurrent)
+	workers := min(st.config.Concurrent, st.config.DownloadSize)
+	if workers > 0 {
+		downloadChunkSize := st.config.DownloadSize / workers
+		ctx := context.Background()
+		var probe *fastProbe
+		if st.mode.IsFast() {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithCancel(ctx)
+			defer cancel()
+			probe = newFastProbe(*st.config.FastCheck)
+			timer := time.AfterFunc(time.Until(probe.start.Add(probe.check.Window)), func() {
+				if probe.failure(probe.check.Window) != "" {
+					cancel()
+				}
+			})
+			defer timer.Stop()
+		}
+		downloadResults := make(chan *downloadResult, workers)
 
-		for i := 0; i < st.config.Concurrent; i++ {
+		for i := range workers {
+			size := downloadChunkSize
+			if i < st.config.DownloadSize%workers {
+				size++
+			}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				downloadResults <- st.testDownload(proxy, downloadChunkSize, st.config.Timeout)
+				downloadResults <- st.testDownload(ctx, proxy, size, st.config.Timeout, probe)
 			}()
 		}
 		wg.Wait()
 
-		for range st.config.Concurrent {
+		for range workers {
 			if dr := <-downloadResults; dr != nil {
 				downloadSummary.add(dr)
 			}
@@ -495,6 +528,13 @@ func (st *SpeedTester) testProxy(name string, proxy *CProxy) *Result {
 
 		result.DownloadSize, result.DownloadTime, result.DownloadSpeed, result.DownloadError = applyTransferSummary(downloadSummary)
 
+		if probe != nil && (result.DownloadError == "" || ctx.Err() != nil) {
+			if reason := probe.failure(time.Since(probe.start)); reason != "" {
+				result.DownloadSpeed = 0
+				result.DownloadError = reason
+				return result
+			}
+		}
 		if st.config.OutputPath != "" && st.config.MinDownloadSpeed > 0 && result.DownloadSpeed < st.config.MinDownloadSpeed {
 			return result
 		}
@@ -639,7 +679,7 @@ func (s *transferSummary) averageDuration() time.Duration {
 	return s.totalDuration / time.Duration(s.successCount)
 }
 
-func (st *SpeedTester) testDownload(proxy constant.Proxy, size int, timeout time.Duration) *downloadResult {
+func (st *SpeedTester) testDownload(ctx context.Context, proxy constant.Proxy, size int, timeout time.Duration, probe *fastProbe) *downloadResult {
 	client := st.createClient(proxy, timeout)
 	defer client.CloseIdleConnections()
 
@@ -651,7 +691,7 @@ func (st *SpeedTester) testDownload(proxy constant.Proxy, size int, timeout time
 		downloadURL = fmt.Sprintf("%s/__down?bytes=%d", st.serverBaseURL, size)
 	}
 
-	req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return &downloadResult{
 			error: fmt.Sprintf("create download request for %s failed: %v", downloadURL, err),
@@ -674,7 +714,15 @@ func (st *SpeedTester) testDownload(proxy constant.Proxy, size int, timeout time
 		}
 	}
 
-	downloadBytes, _ := io.Copy(io.Discard, resp.Body)
+	var downloadBytes int64
+	if probe != nil {
+		downloadBytes, err = io.Copy(probe, io.LimitReader(resp.Body, int64(size)))
+		if err != nil && (ctx.Err() != nil || downloadBytes == 0) {
+			return &downloadResult{error: err.Error()}
+		}
+	} else {
+		downloadBytes, _ = io.Copy(io.Discard, resp.Body)
+	}
 	return &downloadResult{
 		bytes:    downloadBytes,
 		duration: time.Since(start),

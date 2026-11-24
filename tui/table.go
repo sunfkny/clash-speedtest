@@ -45,7 +45,7 @@ func buildColumns(headers []string, width int, mode speedtester.SpeedMode) []tab
 func calculateColumnWidths(width int, mode speedtester.SpeedMode) []int {
 	columnPadding := 2
 	columnCount := 7
-	if mode.IsFast() {
+	if mode.LatencyOnly() {
 		columnCount = 4
 	} else if mode.UploadEnabled() {
 		columnCount = 8
@@ -56,7 +56,7 @@ func calculateColumnWidths(width int, mode speedtester.SpeedMode) []int {
 		availableWidth = max(width-columnCount*columnPadding, 0)
 	}
 
-	if mode.IsFast() {
+	if mode.LatencyOnly() {
 		indexWidth := 6
 		typeWidth := 12
 		latencyWidth := 10
@@ -295,7 +295,7 @@ func (m *tuiModel) colorizeRow(row []string, result *speedtester.Result) table.R
 		latencyStr = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Render(latencyStr) // red
 	}
 
-	if m.mode.IsFast() {
+	if m.mode.LatencyOnly() {
 		return table.Row{row[0], row[1], row[2], latencyStr}
 	}
 

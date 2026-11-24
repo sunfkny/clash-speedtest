@@ -8,11 +8,11 @@ import (
 )
 
 // GetHeaders returns table headers based on speed mode.
-// fast: ID, Name, Type, Latency
+// ttfb: ID, Name, Type, Latency
 // download: ID, Name, Type, Latency, Jitter, Packet Loss, Download Speed
 // full: ID, Name, Type, Latency, Jitter, Packet Loss, Download Speed, Upload Speed
 func GetHeaders(mode speedtester.SpeedMode) []string {
-	if mode.IsFast() {
+	if mode.LatencyOnly() {
 		return []string{
 			"序号",
 			"节点名称",
@@ -40,7 +40,7 @@ func GetHeaders(mode speedtester.SpeedMode) []string {
 func FormatRow(result *speedtester.Result, mode speedtester.SpeedMode, index int) []string {
 	idStr := fmt.Sprintf("%d.", index+1)
 
-	if mode.IsFast() {
+	if mode.LatencyOnly() {
 		return []string{
 			idStr,
 			result.ProxyName,
@@ -64,10 +64,10 @@ func FormatRow(result *speedtester.Result, mode speedtester.SpeedMode, index int
 }
 
 // SortResults sorts results based on speed mode.
-// fast: latency ascending (lower is better)
+// ttfb: latency ascending (lower is better)
 // download/full: download speed descending (higher is better)
 func SortResults(results []*speedtester.Result, mode speedtester.SpeedMode) []*speedtester.Result {
-	if mode.IsFast() {
+	if mode.LatencyOnly() {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].Latency < results[j].Latency
 		})

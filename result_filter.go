@@ -28,7 +28,7 @@ func newResultFilter(mode speedtester.SpeedMode) resultFilter {
 }
 
 func (f resultFilter) Match(result *speedtester.Result) bool {
-	if result == nil {
+	if result == nil || (f.mode.IsFast() && result.DownloadError != "") {
 		return false
 	}
 	if f.maxLatency > 0 && result.Latency > f.maxLatency {
@@ -37,8 +37,8 @@ func (f resultFilter) Match(result *speedtester.Result) bool {
 	if f.maxPacketLoss >= 0 && result.PacketLoss > f.maxPacketLoss {
 		return false
 	}
-	// fast 模式不会测速，DownloadSpeed 为 0，此时只按延迟和丢包筛选。
-	if !f.mode.IsFast() && f.downloadSize > 0 && f.minDownloadSpeed > 0 && result.DownloadSpeed < f.minDownloadSpeed {
+	// TTFB 模式不会测速，DownloadSpeed 为 0，此时只按延迟和丢包筛选。
+	if !f.mode.LatencyOnly() && f.downloadSize > 0 && f.minDownloadSpeed > 0 && result.DownloadSpeed < f.minDownloadSpeed {
 		return false
 	}
 	if f.mode.UploadEnabled() && f.minUploadSpeed > 0 && result.UploadSpeed < f.minUploadSpeed {

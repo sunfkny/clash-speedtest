@@ -219,10 +219,10 @@ func TestTUIModelUpdateTableRows(t *testing.T) {
 	}
 }
 
-// TestTUIModelUpdateTableRowsFastMode tests the updateTableRows function in fast mode
-func TestTUIModelUpdateTableRowsFastMode(t *testing.T) {
+// TestTUIModelUpdateTableRowsTTFBMode tests the updateTableRows function in TTFB mode
+func TestTUIModelUpdateTableRowsTTFBMode(t *testing.T) {
 	resultChannel := make(chan *speedtester.Result, 10)
-	model := NewTUIModel(speedtester.SpeedModeFast, 2, resultChannel)
+	model := NewTUIModel(speedtester.SpeedModeTTFB, 2, resultChannel)
 
 	// Add a result
 	result := &speedtester.Result{
@@ -241,7 +241,7 @@ func TestTUIModelUpdateTableRowsFastMode(t *testing.T) {
 		t.Errorf("Expected 1 row, got %d", len(rows))
 	}
 	if len(rows[0]) != 4 {
-		t.Errorf("Expected 4 columns in fast mode, got %d", len(rows[0]))
+		t.Errorf("Expected 4 columns in TTFB mode, got %d", len(rows[0]))
 	}
 }
 

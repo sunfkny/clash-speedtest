@@ -152,20 +152,20 @@ func TestTUIModelUpdate(t *testing.T) {
 	}
 }
 
-// TestTUIModelUpdateFastMode tests the TUI model update logic in fast mode
-func TestTUIModelUpdateFastMode(t *testing.T) {
+// TestTUIModelUpdateTTFBMode tests the TUI model update logic in TTFB mode
+func TestTUIModelUpdateTTFBMode(t *testing.T) {
 	// Create a result channel
 	resultChannel := make(chan *speedtester.Result, 10)
 
-	// Create a new TUI model in fast mode
-	model := NewTUIModel(speedtester.SpeedModeFast, 3, resultChannel)
+	// Create a new TUI model in TTFB mode
+	model := NewTUIModel(speedtester.SpeedModeTTFB, 3, resultChannel)
 
 	// Verify initial state
-	if model.mode != speedtester.SpeedModeFast {
-		t.Errorf("Expected mode to be %v, got %v", speedtester.SpeedModeFast, model.mode)
+	if model.mode != speedtester.SpeedModeTTFB {
+		t.Errorf("Expected mode to be %v, got %v", speedtester.SpeedModeTTFB, model.mode)
 	}
 
-	// Create test results (only latency matters in fast mode)
+	// Create test results (only latency matters in TTFB mode)
 	result1 := &speedtester.Result{
 		ProxyName:   "Proxy 1",
 		ProxyType:   "SS",

@@ -8,27 +8,26 @@ import (
 type SpeedMode string
 
 const (
+	SpeedModeTTFB     SpeedMode = "ttfb"
 	SpeedModeFast     SpeedMode = "fast"
 	SpeedModeDownload SpeedMode = "download"
 	SpeedModeFull     SpeedMode = "full"
 )
 
 func ParseSpeedMode(value string) (SpeedMode, error) {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	switch SpeedMode(normalized) {
-	case SpeedModeFast:
-		return SpeedModeFast, nil
-	case SpeedModeDownload:
-		return SpeedModeDownload, nil
-	case SpeedModeFull:
-		return SpeedModeFull, nil
+	mode := SpeedMode(strings.ToLower(strings.TrimSpace(value)))
+	switch mode {
+	case SpeedModeFast, SpeedModeTTFB, SpeedModeDownload, SpeedModeFull:
+		return mode, nil
 	default:
 		return "", fmt.Errorf("unsupported speed mode %q", value)
 	}
 }
 
-func (m SpeedMode) IsFast() bool {
-	return m == SpeedModeFast
+func (m SpeedMode) IsFast() bool { return m == SpeedModeFast }
+
+func (m SpeedMode) LatencyOnly() bool {
+	return m == SpeedModeTTFB
 }
 
 func (m SpeedMode) UploadEnabled() bool {

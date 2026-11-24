@@ -15,6 +15,11 @@ func TestParseSpeedMode(t *testing.T) {
 			expected: SpeedModeFast,
 		},
 		{
+			name:     "ttfb",
+			input:    "TTFB",
+			expected: SpeedModeTTFB,
+		},
+		{
 			name:     "download",
 			input:    "download",
 			expected: SpeedModeDownload,
@@ -51,18 +56,18 @@ func TestParseSpeedMode(t *testing.T) {
 }
 
 func TestSpeedModeHelpers(t *testing.T) {
-	if !SpeedModeFast.IsFast() {
-		t.Fatalf("expected fast mode to be fast")
+	if !SpeedModeTTFB.LatencyOnly() {
+		t.Fatalf("expected TTFB mode to measure latency only")
 	}
-	if SpeedModeDownload.IsFast() {
-		t.Fatalf("expected download mode to be non-fast")
+	if SpeedModeDownload.LatencyOnly() {
+		t.Fatalf("expected download mode to measure download speed")
 	}
-	if SpeedModeFull.IsFast() {
-		t.Fatalf("expected full mode to be non-fast")
+	if SpeedModeFull.LatencyOnly() {
+		t.Fatalf("expected full mode to measure download speed")
 	}
 
-	if SpeedModeFast.UploadEnabled() {
-		t.Fatalf("expected fast mode to disable upload")
+	if SpeedModeTTFB.UploadEnabled() {
+		t.Fatalf("expected TTFB mode to disable upload")
 	}
 	if SpeedModeDownload.UploadEnabled() {
 		t.Fatalf("expected download mode to disable upload")

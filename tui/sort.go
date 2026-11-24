@@ -18,7 +18,7 @@ func (m *tuiModel) recordSequence(result *speedtester.Result) {
 }
 
 func defaultSortState(mode speedtester.SpeedMode) (int, bool) {
-	if mode.IsFast() {
+	if mode.LatencyOnly() {
 		return 3, true
 	}
 	return 6, false

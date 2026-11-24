@@ -16,8 +16,8 @@ func TestNewTSVWriter(t *testing.T) {
 		expectedHeader string
 	}{
 		{
-			name:           "fast mode header",
-			mode:           speedtester.SpeedModeFast,
+			name:           "TTFB mode header",
+			mode:           speedtester.SpeedModeTTFB,
 			expectedHeader: "序号\t节点名称\t类型\t延迟\n",
 		},
 		{
@@ -60,8 +60,8 @@ func TestTSVWriter_WriteRow(t *testing.T) {
 		expectedRow string
 	}{
 		{
-			name: "fast mode row",
-			mode: speedtester.SpeedModeFast,
+			name: "TTFB mode row",
+			mode: speedtester.SpeedModeTTFB,
 			result: &speedtester.Result{
 				ProxyName: "Test Proxy",
 				ProxyType: "Trojan",
@@ -149,8 +149,8 @@ func TestTSVWriter_WriteRows(t *testing.T) {
 		expectedRows string
 	}{
 		{
-			name: "fast mode multiple rows",
-			mode: speedtester.SpeedModeFast,
+			name: "TTFB mode multiple rows",
+			mode: speedtester.SpeedModeTTFB,
 			results: []*speedtester.Result{
 				{
 					ProxyName: "Proxy 1",
@@ -249,7 +249,7 @@ func TestTSVWriter_NoANSIColors(t *testing.T) {
 
 func TestTSVWriter_HeaderWrittenOnce(t *testing.T) {
 	var output strings.Builder
-	writer, err := NewTSVWriter(&output, speedtester.SpeedModeFast)
+	writer, err := NewTSVWriter(&output, speedtester.SpeedModeTTFB)
 	if err != nil {
 		t.Fatalf("NewTSVWriter failed: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestTSVWriter_HeaderWrittenOnce(t *testing.T) {
 
 func TestTSVWriter_ErrorContext(t *testing.T) {
 	var output strings.Builder
-	writer, err := NewTSVWriter(&output, speedtester.SpeedModeFast)
+	writer, err := NewTSVWriter(&output, speedtester.SpeedModeTTFB)
 	if err != nil {
 		t.Fatalf("NewTSVWriter failed: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestTSVWriter_ErrorContext(t *testing.T) {
 
 	failWriter := &TSVWriter{
 		output: &errorWriter{},
-		mode:   speedtester.SpeedModeFast,
+		mode:   speedtester.SpeedModeTTFB,
 	}
 	err = failWriter.WriteRow(result, 0)
 	if err == nil {

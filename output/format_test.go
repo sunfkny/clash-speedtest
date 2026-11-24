@@ -8,8 +8,8 @@ import (
 )
 
 func TestGetHeaders(t *testing.T) {
-	t.Run("fast mode", func(t *testing.T) {
-		headers := GetHeaders(speedtester.SpeedModeFast)
+	t.Run("TTFB mode", func(t *testing.T) {
+		headers := GetHeaders(speedtester.SpeedModeTTFB)
 		expected := []string{"序号", "节点名称", "类型", "延迟"}
 		if len(headers) != len(expected) {
 			t.Errorf("expected %d headers, got %d", len(expected), len(headers))
@@ -59,10 +59,10 @@ func TestFormatRow(t *testing.T) {
 		UploadSpeed:   5 * 1024 * 1024,  // 5 MB/s
 	}
 
-	t.Run("fast mode", func(t *testing.T) {
-		row := FormatRow(result, speedtester.SpeedModeFast, 0)
+	t.Run("TTFB mode", func(t *testing.T) {
+		row := FormatRow(result, speedtester.SpeedModeTTFB, 0)
 		if len(row) != 4 {
-			t.Errorf("expected 4 columns in fast mode, got %d", len(row))
+			t.Errorf("expected 4 columns in TTFB mode, got %d", len(row))
 		}
 		if row[0] != "1." {
 			t.Errorf("expected index '1.', got %q", row[0])
@@ -157,8 +157,8 @@ func TestFormatRow(t *testing.T) {
 	})
 
 	t.Run("index increment", func(t *testing.T) {
-		row1 := FormatRow(result, speedtester.SpeedModeFast, 0)
-		row2 := FormatRow(result, speedtester.SpeedModeFast, 1)
+		row1 := FormatRow(result, speedtester.SpeedModeTTFB, 0)
+		row2 := FormatRow(result, speedtester.SpeedModeTTFB, 1)
 		if row1[0] != "1." {
 			t.Errorf("expected first row index '1.', got %q", row1[0])
 		}
@@ -169,13 +169,13 @@ func TestFormatRow(t *testing.T) {
 }
 
 func TestSortResults(t *testing.T) {
-	t.Run("fast mode - latency ascending", func(t *testing.T) {
+	t.Run("TTFB mode - latency ascending", func(t *testing.T) {
 		results := []*speedtester.Result{
 			{Latency: 500 * time.Millisecond},
 			{Latency: 100 * time.Millisecond},
 			{Latency: 300 * time.Millisecond},
 		}
-		results = SortResults(results, speedtester.SpeedModeFast)
+		results = SortResults(results, speedtester.SpeedModeTTFB)
 		if results[0].Latency != 100*time.Millisecond {
 			t.Errorf("expected first result latency 100ms, got %v", results[0].Latency)
 		}
@@ -207,7 +207,7 @@ func TestSortResults(t *testing.T) {
 
 	t.Run("empty results", func(t *testing.T) {
 		results := []*speedtester.Result{}
-		results = SortResults(results, speedtester.SpeedModeFast)
+		results = SortResults(results, speedtester.SpeedModeTTFB)
 		if len(results) != 0 {
 			t.Errorf("expected empty results, got %d items", len(results))
 		}
@@ -217,7 +217,7 @@ func TestSortResults(t *testing.T) {
 		results := []*speedtester.Result{
 			{Latency: 500 * time.Millisecond},
 		}
-		results = SortResults(results, speedtester.SpeedModeFast)
+		results = SortResults(results, speedtester.SpeedModeTTFB)
 		if len(results) != 1 {
 			t.Errorf("expected 1 result, got %d", len(results))
 		}
@@ -270,18 +270,18 @@ func TestResultFormatting(t *testing.T) {
 			t.Errorf("expected proxy name 'Proxy B', got %q", row[1])
 		}
 
-		// Test fast mode
-		results = SortResults(results, speedtester.SpeedModeFast)
+		// Test TTFB mode
+		results = SortResults(results, speedtester.SpeedModeTTFB)
 		if results[0].ProxyName != "Proxy B" {
 			t.Errorf("expected Proxy B first (lower latency), got %s", results[0].ProxyName)
 		}
 
-		headers = GetHeaders(speedtester.SpeedModeFast)
+		headers = GetHeaders(speedtester.SpeedModeTTFB)
 		if len(headers) != 4 {
-			t.Errorf("expected 4 headers in fast mode, got %d", len(headers))
+			t.Errorf("expected 4 headers in TTFB mode, got %d", len(headers))
 		}
 
-		row = FormatRow(results[0], speedtester.SpeedModeFast, 0)
+		row = FormatRow(results[0], speedtester.SpeedModeTTFB, 0)
 		if len(row) != 4 {
 			t.Errorf("expected 4 columns, got %d", len(row))
 		}

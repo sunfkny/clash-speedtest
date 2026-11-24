@@ -95,7 +95,7 @@ func TestGenerateNodeNameFromTemplate(t *testing.T) {
 	}
 }
 
-func TestGenerateNodeNameFastModeWithDefaultTemplate(t *testing.T) {
+func TestGenerateNodeNameTTFBModeWithDefaultTemplate(t *testing.T) {
 	nameCount := make(map[string]int)
 
 	name := GenerateNodeName("SG", 120*time.Millisecond, 0, 0, nameCount)
@@ -105,7 +105,7 @@ func TestGenerateNodeNameFastModeWithDefaultTemplate(t *testing.T) {
 	}
 }
 
-func TestGenerateNodeNameFromTemplateFastModeLatencyField(t *testing.T) {
+func TestGenerateNodeNameFromTemplateTTFBModeLatencyField(t *testing.T) {
 	nameCount := make(map[string]int)
 
 	name, err := GenerateNodeNameFromTemplate("{{.CountryCode}}-{{.Index}} {{.LatencyMs}}ms", "DE", 86*time.Millisecond, 0, 0, nameCount)

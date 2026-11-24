@@ -30,7 +30,7 @@ var (
 	filterRegexConfig = flag.String("f", ".+", "filter proxies by name, use regexp")
 	blockKeywords     = flag.String("b", "", "block proxies by keywords, use | to separate multiple keywords (example: -b 'rate|x1|1x')")
 	serverURL         = flag.String("server-url", "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg", "server url or direct download url")
-	speedMode         = flag.String("speed-mode", "download", "speed test mode: fast, download, full")
+	speedMode         = flag.String("speed-mode", "download", "speed test mode: ttfb, fast, download, full")
 	downloadSize      = flag.Int("download-size", 50*1024*1024, "download size for testing proxies")
 	uploadSize        = flag.Int("upload-size", 20*1024*1024, "upload size for testing proxies (full mode only)")
 	timeout           = flag.Duration("timeout", time.Second*5, "timeout for testing proxies")
@@ -50,6 +50,9 @@ var (
 	renameNodes       = flag.Bool("rename", true, "rename nodes with IP location and speed")
 	renameTemplate    = flag.String("rename-template", "", "name template for renaming (Go text/template). Placeholders: {{.Flag}}, {{.CountryCode}}, {{.Index}}, {{.Direction}}, {{.Speed}}, {{.SpeedUnit}}, {{.LatencyMs}}, {{.DownloadSpeedMBps}}, {{.UploadSpeedMBps}}. Empty = default format")
 	fastMode          = flag.Bool("fast", false, "fast mode (alias for --speed-mode fast)")
+	ttfbMode          = flag.Bool("ttfb", false, "latency only (alias for --speed-mode ttfb)")
+	fastWindow        = flag.Duration("fast-window", speedtester.DefaultFastCheck().Window, "download observation window in fast mode")
+	fastPeak          = flag.Float64("fast-peak", speedtester.DefaultFastCheck().PeakMBps, "minimum peak download speed in fast mode (MB/s)")
 	versionFlag       = flag.Bool("v", false, "show version information")
 	userAgent         = flag.String("ua", "", "User-Agent for fetching config from http(s) URL (default: mihomo kernel UA, e.g. mihomo/1.10.0)")
 )
@@ -70,7 +73,12 @@ func main() {
 
 	var err error
 	requestedMode := speedtester.SpeedModeFast
-	if !*fastMode {
+	if *ttfbMode && *fastMode {
+		log.Fatal("-ttfb and -fast cannot be combined")
+	}
+	if *ttfbMode {
+		requestedMode = speedtester.SpeedModeTTFB
+	} else if !*fastMode {
 		requestedMode, err = speedtester.ParseSpeedMode(*speedMode)
 		if err != nil {
 			log.Fatalf("parse speed mode failed: %s", err)
@@ -91,6 +99,7 @@ func main() {
 		MinDownloadSpeed: *minDownloadSpeed * 1024 * 1024,
 		MinUploadSpeed:   *minUploadSpeed * 1024 * 1024,
 		Mode:             requestedMode,
+		FastCheck:        &speedtester.FastCheck{Window: *fastWindow, PeakMBps: *fastPeak},
 		OutputPath:       *outputPath,
 		UserAgent:        *userAgent,
 	})

@@ -52,7 +52,7 @@ Usage of clash-speedtest:
   -server-url string
         server url or direct download url (default "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg")
   -speed-mode string
-        speed test mode: fast, download, full (default "download")
+        speed test mode: ttfb, fast, download, full (default "download")
   -download-size int
         download size for testing proxies (default 50MB)
   -upload-size int
@@ -75,6 +75,12 @@ Usage of clash-speedtest:
         stop testing after this many results pass filters (0 disables)
   -rename
         rename nodes with IP location and speed
+  -ttfb
+        latency only (alias for --speed-mode ttfb)
+  -fast-window duration
+        download observation window in fast mode (default 2s)
+  -fast-peak float
+        minimum peak download speed in MB/s (default 1)
   -fast
         fast mode (alias for --speed-mode fast)
   -gist-token string
@@ -118,8 +124,14 @@ Premium|广港|IEPL|05                        	3.87MB/s    	249.00ms
 # 重命名后的节点名称格式：🇺🇸 US 001 | ⬇️ 15.67MB/s
 # 包含国旗 emoji、国家代码和下载速度
 
-# 6. 快速测试模式
-> clash-speedtest -f 'HK' -fast -c ~/.config/clash/config.yaml
+# 6. 快速下载测速
+> clash-speedtest -fast -c config.yaml -fast-window 2s -fast-peak 1
+# 下载开始后按 250 毫秒分段，合计当前节点所有并发连接收到的字节，取各段速度的最大值。
+# 默认在第 2 秒检查：峰值低于 1 MB/s 就取消当前节点测速，然后测试下一个节点。
+# 提前结束的下载按实际用时检查；通过检查的节点继续正常测速。
+
+# TTFB 首字节延迟测速（原 -fast）
+> clash-speedtest -f 'HK' -ttfb -c ~/.config/clash/config.yaml
 # 此命令将只测试节点延迟，跳过其他测试项目，适用于：
 # - 快速检查节点是否可用
 # - 只需要检查延迟的场景
@@ -214,7 +226,7 @@ clash-speedtest --server-url "https://speed.cloudflare.com" --speed-mode full
 
 测试结果：
 1. 带宽 是指下载指定大小文件的速度，即一般理解中的下载速度。当这个数值越高时表明节点的出口带宽越大。
-2. 延迟 是指 HTTP GET 请求拿到第一个字节的的响应时间，即一般理解中的 TTFB。当这个数值越低时表明你本地到达节点的延迟越低，可能意味着中转节点有 BGP 部署、出海线路是 IEPL、IPLC 等。
+2. 延迟 是指 HTTP HEAD 请求收到响应头所用的时间，即一般理解中的 TTFB。当这个数值越低时表明你本地到达节点的延迟越低，可能意味着中转节点有 BGP 部署、出海线路是 IEPL、IPLC 等。
 
 请注意带宽跟延迟是两个独立的指标，两者并不关联：
 1. 可能带宽很高但是延迟也很高，这种情况下你下载速度很快但是打开网页的时候却很慢，可能是是中转节点没有 BGP 加速，但出海线路带宽很充足。
