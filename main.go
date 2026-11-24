@@ -26,7 +26,7 @@ var (
 )
 
 var (
-	configPathsConfig = flag.String("c", "", "config file path, also support http(s) url")
+	configPathsConfig = flag.String("c", "", "config file path or HTTP(S) URL (default: discover Clash Party or clashctl)")
 	filterRegexConfig = flag.String("f", ".+", "filter proxies by name, use regexp")
 	blockKeywords     = flag.String("b", "", "block proxies by keywords, use | to separate multiple keywords (example: -b 'rate|x1|1x')")
 	serverURL         = flag.String("server-url", "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg", "server url or direct download url")
@@ -67,8 +67,24 @@ func main() {
 		os.Exit(0)
 	}
 
+	var workDir string
 	if *configPathsConfig == "" {
-		log.Fatalln("please specify the configuration file")
+		candidates, err := discoverConfigs()
+		if err != nil {
+			log.Fatal(err)
+		}
+		source, err := chooseConfig(candidates, os.Stdin, os.Stderr, output.IsTerminalFile(os.Stdin) && output.IsTerminalFile(os.Stderr))
+		if err != nil {
+			log.Fatal(err)
+		}
+		*configPathsConfig, workDir = source.path, source.workDir
+		fmt.Fprintf(os.Stderr, "使用 %s 配置：%s\n", source.client, source.path)
+	} else if filepath.Base(*configPathsConfig) == "runtime.yaml" {
+		abs, err := filepath.Abs(*configPathsConfig)
+		if err == nil {
+			source := clashctlSource(filepath.Dir(filepath.Dir(abs)), abs)
+			workDir = source.workDir
+		}
 	}
 
 	var err error
@@ -87,6 +103,7 @@ func main() {
 
 	speedTester, err := speedtester.New(&speedtester.Config{
 		ConfigPaths:      *configPathsConfig,
+		WorkDir:          workDir,
 		FilterRegex:      *filterRegexConfig,
 		BlockRegex:       *blockKeywords,
 		ServerURL:        *serverURL,
@@ -118,6 +135,9 @@ func main() {
 		log.Fatalf("load proxies failed: %s", err)
 	}
 
+	if workDir != "" && len(allProxies) == 0 {
+		log.Fatal("当前配置中没有符合筛选条件的可测速节点")
+	}
 	outputMode := output.DetermineOutputMode(output.IsTerminalFile)
 
 	var tsvWriter *output.TSVWriter

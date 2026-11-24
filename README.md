@@ -29,6 +29,17 @@ rules:
 > clash-speedtest -c 'https://domain.com/api/v1/client/subscribe?token=secret&flag=meta'
 ```
 
+## 自动读取当前配置
+
+直接运行 `clash-speedtest` 会使用当前配置测试下载速度。运行 `clash-speedtest -fast` 可使用快速下载模式，`clash-speedtest -ttfb` 只测延迟。显式传入 `-c` 时使用指定的文件或订阅地址。
+
+| 客户端 | 读取的配置 |
+| --- | --- |
+| Clash Party（Windows、Linux、macOS） | 优先读取运行内核的工作目录。内核停止时，根据应用设置读取 `work/config.yaml` 或当前订阅的 `work/<id>/config.yaml`。便携版停止时，可在含有 `PORTABLE` 标记的客户端目录中启动测速。 |
+| clashctl（Linux） | 优先读取内核启动参数指定的 `runtime.yaml`。内核停止时，查找 `$CLASHCTL_HOME/data/runtime.yaml` 或默认的 `~/.clashctl/data/runtime.yaml`。相对 provider 路径按内核的 `resources/` 目录解析。 |
+
+发现多个运行配置时，终端会列出路径供选择；没有运行实例时，对已生成的配置使用同样的选择规则。脚本可用 `-c` 指定来源。HTTP provider 优先读取本地配置对应的缓存，缺少缓存时按 provider 的 URL 和请求头获取节点。
+
 ## 使用方法
 
 ```bash

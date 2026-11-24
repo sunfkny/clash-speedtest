@@ -17,13 +17,15 @@ import (
 	"time"
 
 	"github.com/metacubex/mihomo/adapter"
-	"github.com/metacubex/mihomo/adapter/provider"
 	"github.com/metacubex/mihomo/constant"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
+	"maps"
+	"path/filepath"
 )
 
 type Config struct {
 	ConfigPaths      string
+	WorkDir          string
 	FilterRegex      string
 	BlockRegex       string
 	ServerURL        string
@@ -187,19 +189,30 @@ func (st *SpeedTester) LoadProxies() (map[string]*CProxy, error) {
 	st.blockedNodes = make([]string, 0)
 	st.blockedNodeCount = 0
 
-	for configPath := range strings.SplitSeq(st.config.ConfigPaths, ",") {
+	paths := []string{st.config.ConfigPaths}
+	if st.config.WorkDir == "" {
+		paths = strings.Split(st.config.ConfigPaths, ",")
+	}
+	for _, configPath := range paths {
+		workDir := st.config.WorkDir
 		var body []byte
 		var err error
-		if strings.HasPrefix(configPath, "http") {
+		if strings.HasPrefix(configPath, "http://") || strings.HasPrefix(configPath, "https://") {
 			body, err = st.fetchHTTPConfig(strings.TrimSpace(configPath))
 			if err != nil {
 				log.Printf("failed to fetch config: %s", err)
 				continue
 			}
 		} else {
+			if workDir == "" {
+				workDir = filepath.Dir(configPath)
+			}
 			body, err = os.ReadFile(configPath)
 		}
 		if err != nil {
+			if st.config.WorkDir != "" {
+				return nil, err
+			}
 			log.Printf("failed to read config: %s", err)
 			continue
 		}
@@ -208,7 +221,7 @@ func (st *SpeedTester) LoadProxies() (map[string]*CProxy, error) {
 			Proxies: []map[string]any{},
 		}
 		if err := yaml.Unmarshal(body, rawCfg); err != nil {
-			return nil, fmt.Errorf("unable to parse config at path %s: %w, body: %s", configPath, err, body)
+			return nil, fmt.Errorf("unable to parse config at path %s: %w", configPath, err)
 		}
 		proxies := make(map[string]*CProxy)
 		proxiesConfig := rawCfg.Proxies
@@ -226,42 +239,12 @@ func (st *SpeedTester) LoadProxies() (map[string]*CProxy, error) {
 			proxies[proxy.Name()] = &CProxy{Proxy: proxy, Config: config}
 		}
 		for name, config := range providersConfig {
-			if name == provider.ReservedName {
-				return nil, fmt.Errorf("can not defined a provider called `%s`", provider.ReservedName)
-			}
-			pd, err := provider.ParseProxyProvider(name, config)
+			nodes, err := st.providerNodes(name, config, workDir)
 			if err != nil {
-				return nil, fmt.Errorf("parse proxy provider %s error: %w", name, err)
-			}
-			if err := pd.Initial(); err != nil {
-				log.Printf("initial proxy provider %s error: %s", pd.Name(), err)
+				log.Printf("load proxy provider %s: %s", name, err)
 				continue
 			}
-
-			body, err = st.fetchHTTPConfig(config["url"].(string))
-			if err != nil {
-				log.Printf("failed to fetch config: %s", err)
-				continue
-			}
-			pdRawCfg := &RawConfig{
-				Proxies: []map[string]any{},
-			}
-			if err := yaml.Unmarshal(body, pdRawCfg); err != nil {
-				return nil, fmt.Errorf("unable to parse config: %w, body: %s", err, body)
-			}
-			pdProxies := make(map[string]map[string]any)
-			for _, pdProxy := range pdRawCfg.Proxies {
-				if pdProxy["name"] == nil || pdProxy["server"] == nil {
-					continue
-				}
-				pdProxies[pdProxy["name"].(string)] = pdProxy
-			}
-			for _, proxy := range pd.Proxies() {
-				proxies[fmt.Sprintf("[%s] %s", name, proxy.Name())] = &CProxy{
-					Proxy:  proxy,
-					Config: pdProxies[proxy.Name()],
-				}
-			}
+			maps.Copy(proxies, nodes)
 		}
 		for k, p := range proxies {
 			switch p.Type() {
@@ -271,8 +254,8 @@ func (st *SpeedTester) LoadProxies() (map[string]*CProxy, error) {
 			default:
 				continue
 			}
-			if server, ok := p.Config["server"]; ok {
-				p.Config["server"] = convertMappedIPv6ToIPv4(server.(string))
+			if server, ok := p.Config["server"].(string); ok {
+				p.Config["server"] = convertMappedIPv6ToIPv4(server)
 			}
 			if _, ok := allProxies[k]; !ok {
 				allProxies[k] = p
