@@ -34,26 +34,42 @@ func TestPartyDiscovery(t *testing.T) {
 			t.Fatalf("snapshot = %+v, %v", s, err)
 		}
 	}
-	active := filepath.Join(root, "work", "running")
-	s := runningSource([]string{"mihomo", "-d", active})
-	if s.workDir != active || s.path != filepath.Join(active, "config.yaml") {
-		t.Fatalf("running config = %+v", s)
+	active := filepath.Join(root, "work", "startup")
+	fixture(t, filepath.Join(active, "config.yaml"), "proxies: []")
+	args := []string{"mihomo", "-d", active}
+	for _, id := range []string{"selected", "switched"} {
+		selectedDir := filepath.Join(root, "work", id)
+		selectedPath := fixture(t, filepath.Join(selectedDir, "config.yaml"), "proxies: []")
+		fixture(t, filepath.Join(root, "profile.yaml"), "current: "+id)
+		s, err := runningSource(args)
+		if err != nil || s.path != selectedPath || s.workDir != selectedDir {
+			t.Fatalf("after selecting %s: got %+v, %v", id, s, err)
+		}
 	}
-	if s := runningSource([]string{"mihomo", "-t", "-d", active}); s.path != "" {
+	fixture(t, filepath.Join(root, "profile.yaml"), "current: missing")
+	if s, err := runningSource(args); err == nil || s.path != "" {
+		t.Fatalf("missing selected config: got %+v, %v", s, err)
+	}
+	fixture(t, filepath.Join(root, "config.yaml"), "diffWorkDir: false")
+	if s, err := runningSource(args); err != nil || s.path != filepath.Join(root, "work", "config.yaml") {
+		t.Fatalf("shared config: got %+v, %v", s, err)
+	}
+	if s, err := runningSource([]string{"mihomo", "-t", "-d", active}); err != nil || s.path != "" {
 		t.Fatal("matched config validation process")
 	}
+
 }
 
 func TestClashctlRunningConfig(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "custom home")
 	dir := filepath.Join(root, "resources")
 	config := filepath.Join(root, "data", "runtime.yaml")
-	if s := runningSource([]string{"mihomo", "-d", dir, "-f", config}); s.path != "" {
+	if s, err := runningSource([]string{"mihomo", "-d", dir, "-f", config}); err != nil || s.path != "" {
 		t.Fatal("matched unrelated core")
 	}
 	fixture(t, filepath.Join(root, "scripts", "cmd", "clashctl.sh"), "")
-	s := runningSource([]string{"mihomo", "-d", dir, "-f", config})
-	if s.path != config || s.workDir != dir || s.client != "clashctl" {
+	s, err := runningSource([]string{"mihomo", "-d", dir, "-f", config})
+	if err != nil || s.path != config || s.workDir != dir || s.client != "clashctl" {
 		t.Fatalf("source = %+v", s)
 	}
 }

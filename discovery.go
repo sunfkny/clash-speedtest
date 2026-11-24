@@ -26,13 +26,6 @@ func regularFile(path string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-func partySource(root, dir string) configSource {
-	if !regularFile(filepath.Join(root, "profile.yaml")) {
-		return configSource{}
-	}
-	return configSource{"Clash Party", filepath.Join(dir, "config.yaml"), dir}
-}
-
 func partySnapshot(root string) (configSource, error) {
 	if !regularFile(filepath.Join(root, "profile.yaml")) {
 		return configSource{}, nil
@@ -59,7 +52,11 @@ func partySnapshot(root string) (configSource, error) {
 		}
 		dir = filepath.Join(dir, profile.Current)
 	}
-	return partySource(root, dir), nil
+	path := filepath.Join(dir, "config.yaml")
+	if !regularFile(path) {
+		return configSource{}, fmt.Errorf("Clash Party 当前配置尚未生成或无法读取：%s", path)
+	}
+	return configSource{"Clash Party", path, dir}, nil
 }
 
 func readMetadata(path string, target any) error {
@@ -80,12 +77,12 @@ func clashctlSource(root, runtimePath string) configSource {
 	return configSource{"clashctl", runtimePath, filepath.Join(root, "resources")}
 }
 
-func runningSource(args []string) configSource {
+func runningSource(args []string) (configSource, error) {
 	var dir, config string
 	for i := 1; i < len(args); i++ {
 		key, value, hasValue := strings.Cut(args[i], "=")
 		if key == "-t" {
-			return configSource{}
+			return configSource{}, nil
 		}
 		if key != "-d" && key != "-f" {
 			continue
@@ -93,7 +90,7 @@ func runningSource(args []string) configSource {
 		if !hasValue {
 			i++
 			if i == len(args) {
-				return configSource{}
+				return configSource{}, nil
 			}
 			value = args[i]
 		}
@@ -104,22 +101,22 @@ func runningSource(args []string) configSource {
 		}
 	}
 	if !filepath.IsAbs(dir) {
-		return configSource{}
+		return configSource{}, nil
 	}
 	parent := filepath.Dir(dir)
 	if filepath.Base(dir) == "resources" && filepath.IsAbs(config) && filepath.Base(config) == "runtime.yaml" {
-		return clashctlSource(parent, config)
+		return clashctlSource(parent, config), nil
 	}
 	if config != "" && config != filepath.Join(dir, "config.yaml") {
-		return configSource{}
+		return configSource{}, nil
 	}
 	if filepath.Base(dir) == "work" {
-		return partySource(parent, dir)
+		return partySnapshot(parent)
 	}
 	if filepath.Base(parent) == "work" {
-		return partySource(filepath.Dir(parent), dir)
+		return partySnapshot(filepath.Dir(parent))
 	}
-	return configSource{}
+	return configSource{}, nil
 }
 
 type sources []configSource
@@ -138,6 +135,7 @@ func (list *sources) add(s configSource) {
 
 func discoverConfigs() (sources, error) {
 	var found sources
+	var metadataErr error
 	processes, _ := process.Processes()
 	for _, p := range processes {
 		name, _ := p.Name()
@@ -145,7 +143,12 @@ func discoverConfigs() (sources, error) {
 		case "mihomo", "mihomo-smart", "mihomo-alpha", "clash", "clash-meta":
 			args, err := p.CmdlineSlice()
 			if err == nil {
-				found.add(runningSource(args))
+				source, err := runningSource(args)
+				if err != nil {
+					metadataErr = err
+					continue
+				}
+				found.add(source)
 			}
 		}
 	}
@@ -153,6 +156,9 @@ func discoverConfigs() (sources, error) {
 		return found, nil
 	}
 
+	if metadataErr != nil {
+		return nil, metadataErr
+	}
 	return installedConfigs()
 }
 
