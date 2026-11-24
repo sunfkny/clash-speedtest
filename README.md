@@ -31,7 +31,7 @@ rules:
 
 ## 自动读取当前配置
 
-直接运行 `clash-speedtest` 会使用当前配置测试下载速度。运行 `clash-speedtest -fast` 可使用快速下载模式，`clash-speedtest -ttfb` 只测延迟。显式传入 `-c` 时使用指定的文件或订阅地址。
+直接运行 `clash-speedtest` 会使用当前配置进行快速下载测速。使用 `-speed-mode download` 可切换到普通下载模式，`clash-speedtest -ttfb` 只测延迟。显式传入 `-c` 时使用指定的文件或订阅地址。
 
 | 客户端 | 读取的配置 |
 | --- | --- |
@@ -39,6 +39,12 @@ rules:
 | clashctl（Linux） | 优先读取内核启动参数指定的 `runtime.yaml`。内核停止时，查找 `$CLASHCTL_HOME/data/runtime.yaml` 或默认的 `~/.clashctl/data/runtime.yaml`。相对 provider 路径按内核的 `resources/` 目录解析。 |
 
 发现多个运行配置时，终端会列出路径供选择；没有运行实例时，对已生成的配置使用同样的选择规则。脚本可用 `-c` 指定来源。HTTP provider 优先读取本地配置对应的缓存，缺少缓存时按 provider 的 URL 和请求头获取节点。
+
+## 并发测速
+
+默认同时测试 8 个节点，直接开始下载，跳过延迟和丢包探测（单独测延迟请用 `-ttfb`），按完成顺序显示结果。有节点卡住时，其他节点可以继续测速。达到 `-early-stop` 的目标数量时，会取消尚在进行的节点测试。
+
+`clash-speedtest -fast -node-concurrent 8 -concurrent 2` 同时测试最多 8 个节点，每个节点使用 2 条下载连接。并发下载的节点共享本机带宽，需要单独测量每个节点的带宽时可设 `-node-concurrent 1`。
 
 ## 使用方法
 
@@ -63,7 +69,7 @@ Usage of clash-speedtest:
   -server-url string
         server url or direct download url (default "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg")
   -speed-mode string
-        speed test mode: ttfb, fast, download, full (default "download")
+        speed test mode: ttfb, fast, download, full (default "fast")
   -download-size int
         download size for testing proxies (default 50MB)
   -upload-size int
@@ -71,7 +77,9 @@ Usage of clash-speedtest:
   -timeout duration
         timeout for testing proxies (default 5s)
   -concurrent int
-        download concurrent size (default 4)
+        transfer connections per node (default 4)
+  -node-concurrent int
+        maximum number of nodes tested simultaneously (default 8)
   -output string
         output config file path (default "")
   -max-latency duration
@@ -90,8 +98,6 @@ Usage of clash-speedtest:
         latency only (alias for --speed-mode ttfb)
   -fast-window duration
         download observation window in fast mode (default 2s)
-  -fast-peak float
-        minimum peak download speed in MB/s (default 1)
   -fast
         fast mode (alias for --speed-mode fast)
   -gist-token string
@@ -125,8 +131,8 @@ Premium|广港|IEPL|05                        	3.87MB/s    	249.00ms
 # 3. 当然你也可以混合使用
 > clash-speedtest -c "https://domain.com/api/v1/client/subscribe?token=secret&flag=meta,/home/.config/clash/config.yaml"
 
-# 4. 筛选出延迟低于 800ms 且下载速度大于 5MB/s 的节点，并输出到 filtered.yaml
-> clash-speedtest -c "https://domain.com/api/v1/client/subscribe?token=secret&flag=meta" -output filtered.yaml -max-latency 800ms -min-download-speed 5
+# 4. 筛选出下载速度至少为 5MB/s 的节点，并输出到 filtered.yaml
+> clash-speedtest -c "https://domain.com/api/v1/client/subscribe?token=secret&flag=meta" -output filtered.yaml -min-download-speed 5
 # 筛选后的配置文件可以直接粘贴到 Clash/Mihomo 中使用，或是贴到 Github\Gist 上通过 Proxy Provider 引用。
 # 如果只需要前 20 个满足筛选条件的节点，可以加 -early-stop 20，达到数量后会停止继续测速。
 
@@ -136,10 +142,9 @@ Premium|广港|IEPL|05                        	3.87MB/s    	249.00ms
 # 包含国旗 emoji、国家代码和下载速度
 
 # 6. 快速下载测速
-> clash-speedtest -fast -c config.yaml -fast-window 2s -fast-peak 1
-# 下载开始后按 250 毫秒分段，合计当前节点所有并发连接收到的字节，取各段速度的最大值。
-# 默认在第 2 秒检查：峰值低于 1 MB/s 就取消当前节点测速，然后测试下一个节点。
-# 提前结束的下载按实际用时检查；通过检查的节点继续正常测速。
+> clash-speedtest -fast -c config.yaml -fast-window 2s
+# 默认前 2 秒没有收到下载数据才取消；收到数据就显示实测速率。
+# 下载速度低于 0.5 MB/s 显示红色，0.5 至不足 5 MB/s 显示黄色，达到 5 MB/s 显示绿色。
 
 # TTFB 首字节延迟测速（原 -fast）
 > clash-speedtest -f 'HK' -ttfb -c ~/.config/clash/config.yaml

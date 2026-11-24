@@ -255,7 +255,12 @@ func TestCalculateColumnWidthsFitsWindow(t *testing.T) {
 	for _, value := range widths {
 		total += value
 	}
-	padding := 2 * len(widths)
+	padding := 0
+	for _, w := range widths {
+		if w > 0 {
+			padding += 2
+		}
+	}
 	if total+padding > width {
 		t.Fatalf("expected total width to fit window: columns=%d padding=%d window=%d", total, padding, width)
 	}
@@ -271,8 +276,56 @@ func TestCalculateColumnWidthsDownloadOnly(t *testing.T) {
 	for _, value := range widths {
 		total += value
 	}
-	padding := 2 * len(widths)
+	padding := 0
+	for _, w := range widths {
+		if w > 0 {
+			padding += 2
+		}
+	}
 	if total+padding > width {
 		t.Fatalf("expected total width to fit window: columns=%d padding=%d window=%d", total, padding, width)
+	}
+}
+
+func TestDownloadSpeedVisibleInNarrowTerminal(t *testing.T) {
+	for _, mode := range []speedtester.SpeedMode{speedtester.SpeedModeFast, speedtester.SpeedModeDownload, speedtester.SpeedModeFull} {
+		for _, width := range []int{24, 40, 80} {
+			model := NewTUIModel(mode, 1, make(chan *speedtester.Result))
+			model.windowWidth, model.windowHeight = width, 24
+			model.updateTableLayout()
+			model.results = []*speedtester.Result{{ProxyName: "很长的节点名称很长的节点名称", DownloadSpeed: 1023.99 * 1024 * 1024}}
+			model.updateTableRows()
+			view := model.table.View()
+			if !strings.Contains(view, "下载速度") || !strings.Contains(view, "1023.99MB/s") || strings.Contains(view, "丢包率") {
+				t.Fatalf("%s at %d columns: %s", mode, width, view)
+			}
+		}
+	}
+}
+
+func TestIndexHeaderFits(t *testing.T) {
+	for _, mode := range []speedtester.SpeedMode{speedtester.SpeedModeDownload, speedtester.SpeedModeFull, speedtester.SpeedModeTTFB} {
+		for _, width := range []int{40, 80, 120} {
+			m := NewTUIModel(mode, 1, make(chan *speedtester.Result))
+			m.windowWidth, m.windowHeight = width, 24
+			for _, sortColumn := range []int{0, 3} {
+				m.sortColumn = sortColumn
+				m.updateTableLayout()
+				if !strings.Contains(m.table.View(), "序号") {
+					t.Fatalf("%s at width %d: %s", mode, width, m.table.View())
+				}
+			}
+		}
+	}
+}
+
+func TestSpeedMarkerThresholds(t *testing.T) {
+	for _, tc := range []struct {
+		speed  float64
+		marker string
+	}{{1, "🔴"}, {512*1024 - 1, "🔴"}, {512 * 1024, "🟡"}, {5*1024*1024 - 1, "🟡"}, {5 * 1024 * 1024, "🟢"}} {
+		if got := speedMarker(tc.speed); got != tc.marker {
+			t.Errorf("%v B/s: got %s, want %s", tc.speed, got, tc.marker)
+		}
 	}
 }

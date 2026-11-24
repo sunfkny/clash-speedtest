@@ -83,15 +83,11 @@ func buildDetailContent(result *speedtester.Result, width int, mode speedtester.
 		fmt.Sprintf("Node: %s", result.ProxyName),
 		fmt.Sprintf("Type: %s", result.ProxyType),
 		"",
-		fmt.Sprintf("Latency: %s", result.FormatLatency()),
 	}
-	if !mode.LatencyOnly() {
-		lines = append(lines,
-			fmt.Sprintf("Jitter: %s", result.FormatJitter()),
-			fmt.Sprintf("Packet Loss: %s", result.FormatPacketLoss()),
-			"",
-			fmt.Sprintf("Download: %s", result.FormatDownloadSpeedValue()),
-		)
+	if mode.LatencyOnly() {
+		lines = append(lines, fmt.Sprintf("Latency: %s", result.FormatLatency()), fmt.Sprintf("Jitter: %s", result.FormatJitter()), fmt.Sprintf("Packet Loss: %s", result.FormatPacketLoss()))
+	} else {
+		lines = append(lines, fmt.Sprintf("Download: %s", result.FormatDownloadSpeedValue()))
 		lines = appendWrappedValue(lines, "Download Error:", result.FormatDownloadError(), width)
 		if mode.UploadEnabled() {
 			lines = append(lines, "", fmt.Sprintf("Upload: %s", result.FormatUploadSpeedValue()))

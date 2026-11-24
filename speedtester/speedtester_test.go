@@ -63,8 +63,8 @@ func TestResultFormatErrors(t *testing.T) {
 
 	result.DownloadSpeed = 1024
 	result.UploadSpeed = 2048
-	if result.FormatDownloadSpeed() != result.DownloadError {
-		t.Fatalf("expected download speed to prefer error string, got %q", result.FormatDownloadSpeed())
+	if result.FormatDownloadSpeed() != "1.00KB/s" {
+		t.Fatalf("expected measured download speed alongside transfer error, got %q", result.FormatDownloadSpeed())
 	}
 	if result.FormatUploadSpeed() != result.UploadError {
 		t.Fatalf("expected upload speed to prefer error string, got %q", result.FormatUploadSpeed())

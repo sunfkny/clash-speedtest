@@ -28,7 +28,7 @@ func newResultFilter(mode speedtester.SpeedMode) resultFilter {
 }
 
 func (f resultFilter) Match(result *speedtester.Result) bool {
-	if result == nil || (f.mode.IsFast() && result.DownloadError != "") {
+	if result == nil || (f.mode.IsFast() && result.DownloadSpeed == 0 && result.DownloadError != "") {
 		return false
 	}
 	if f.maxLatency > 0 && result.Latency > f.maxLatency {

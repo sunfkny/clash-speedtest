@@ -284,7 +284,7 @@ func (m tuiModel) View() string {
 	}
 
 	// Layout: progress bar at top, table below
-	tableView := m.table.View()
+	tableView := markedSpeed.ReplaceAllStringFunc(m.table.View(), colorSpeedCell)
 	detailView := m.detailPanelView()
 
 	sections := []string{

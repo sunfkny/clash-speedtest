@@ -30,11 +30,12 @@ var (
 	filterRegexConfig = flag.String("f", ".+", "filter proxies by name, use regexp")
 	blockKeywords     = flag.String("b", "", "block proxies by keywords, use | to separate multiple keywords (example: -b 'rate|x1|1x')")
 	serverURL         = flag.String("server-url", "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg", "server url or direct download url")
-	speedMode         = flag.String("speed-mode", "download", "speed test mode: ttfb, fast, download, full")
+	speedMode         = flag.String("speed-mode", "fast", "speed test mode: ttfb, fast, download, full")
 	downloadSize      = flag.Int("download-size", 50*1024*1024, "download size for testing proxies")
 	uploadSize        = flag.Int("upload-size", 20*1024*1024, "upload size for testing proxies (full mode only)")
 	timeout           = flag.Duration("timeout", time.Second*5, "timeout for testing proxies")
-	concurrent        = flag.Int("concurrent", 4, "download concurrent size")
+	concurrent        = flag.Int("concurrent", 4, "transfer connections per node")
+	nodeConcurrent    = flag.Int("node-concurrent", 8, "maximum number of nodes tested simultaneously")
 	outputPath        = flag.String("output", "", "output config file path")
 	gistToken         = flag.String("gist-token", "", "github gist token for updating output")
 	gistAddress       = flag.String("gist-address", "", "github gist address or id for updating output (filename uses output basename)")
@@ -42,8 +43,8 @@ var (
 	repoAddress       = flag.String("repo-address", "", "github repository address or owner/repo for updating output")
 	repoFilePath      = flag.String("repo-file-path", "", "repository file path for uploading output (default: output basename)")
 	repoBranch        = flag.String("repo-branch", "", "repository branch for uploading output (default: repository default branch)")
-	maxLatency        = flag.Duration("max-latency", time.Second, "filter latency greater than this value")
-	maxPacketLoss     = flag.Float64("max-packet-loss", 100, "filter packet loss greater than this value(unit: %)")
+	maxLatency        = flag.Duration("max-latency", time.Second, "filter latency greater than this value (ttfb only)")
+	maxPacketLoss     = flag.Float64("max-packet-loss", 100, "filter packet loss greater than this value (%, ttfb only)")
 	minDownloadSpeed  = flag.Float64("min-download-speed", 5, "filter download speed less than this value(unit: MB/s)")
 	minUploadSpeed    = flag.Float64("min-upload-speed", 2, "filter upload speed less than this value(unit: MB/s, full mode only)")
 	earlyStop         = flag.Int("early-stop", 0, "stop testing after this many results pass filters (0 disables)")
@@ -52,7 +53,6 @@ var (
 	fastMode          = flag.Bool("fast", false, "fast mode (alias for --speed-mode fast)")
 	ttfbMode          = flag.Bool("ttfb", false, "latency only (alias for --speed-mode ttfb)")
 	fastWindow        = flag.Duration("fast-window", speedtester.DefaultFastCheck().Window, "download observation window in fast mode")
-	fastPeak          = flag.Float64("fast-peak", speedtester.DefaultFastCheck().PeakMBps, "minimum peak download speed in fast mode (MB/s)")
 	versionFlag       = flag.Bool("v", false, "show version information")
 	userAgent         = flag.String("ua", "", "User-Agent for fetching config from http(s) URL (default: mihomo kernel UA, e.g. mihomo/1.10.0)")
 )
@@ -67,6 +67,9 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *nodeConcurrent < 1 {
+		log.Fatal("-node-concurrent must be at least 1")
+	}
 	var workDir string
 	if *configPathsConfig == "" {
 		candidates, err := discoverConfigs()
@@ -111,12 +114,13 @@ func main() {
 		UploadSize:       *uploadSize,
 		Timeout:          *timeout,
 		Concurrent:       *concurrent,
+		NodeConcurrent:   *nodeConcurrent,
 		MaxPacketLoss:    *maxPacketLoss,
 		MaxLatency:       *maxLatency,
 		MinDownloadSpeed: *minDownloadSpeed * 1024 * 1024,
 		MinUploadSpeed:   *minUploadSpeed * 1024 * 1024,
 		Mode:             requestedMode,
-		FastCheck:        &speedtester.FastCheck{Window: *fastWindow, PeakMBps: *fastPeak},
+		FastCheck:        &speedtester.FastCheck{Window: *fastWindow},
 		OutputPath:       *outputPath,
 		UserAgent:        *userAgent,
 	})

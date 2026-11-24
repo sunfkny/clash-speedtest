@@ -39,29 +39,32 @@ func TestTUIModelHeaderClickSort(t *testing.T) {
 	updatedModel, _ = updatedModel.(tuiModel).Update(resultMsg{result: result3})
 
 	clickMsg := tea.MouseMsg{
-		X:      headerClickX(updatedModel.(tuiModel), 3),
+		X:      headerClickX(updatedModel.(tuiModel), 6),
 		Y:      updatedModel.(tuiModel).tableHeaderY(),
 		Action: tea.MouseActionRelease,
 		Button: tea.MouseButtonLeft,
 	}
 	updatedModel, _ = updatedModel.(tuiModel).Update(clickMsg)
 
-	if updatedModel.(tuiModel).results[0] != result2 {
-		t.Error("Expected first result to be the lowest latency after header click")
+	if updatedModel.(tuiModel).results[0] != result1 {
+		t.Error("Expected first result to have the lowest speed after header click")
 	}
-	if updatedModel.(tuiModel).results[2] != result1 {
-		t.Error("Expected last result to be the highest latency after header click")
+	if updatedModel.(tuiModel).results[2] != result2 {
+		t.Error("Expected last result to have the highest speed after header click")
 	}
 
 	updatedModel, _ = updatedModel.(tuiModel).Update(clickMsg)
-	if updatedModel.(tuiModel).results[0] != result1 {
-		t.Error("Expected first result to be the highest latency after second header click")
+	if updatedModel.(tuiModel).results[0] != result2 {
+		t.Error("Expected first result to have the highest speed after second header click")
 	}
 }
 
 func headerClickX(model tuiModel, column int) int {
 	x := 0
 	for i, col := range model.table.Columns() {
+		if col.Width == 0 {
+			continue
+		}
 		width := col.Width + tableHeaderPadding*2
 		if i == column {
 			return x + width/2
